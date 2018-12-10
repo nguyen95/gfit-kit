@@ -5,16 +5,16 @@ import com.google.gson.annotations.SerializedName;
 
 import java.io.Serializable;
 
-public class GoogleFitData2 implements Serializable {
+public class GoogleFitDataIntValue implements Serializable {
     @SerializedName("date")
     private String date;
     @SerializedName("value")
     private int value;
 
-    public GoogleFitData2() {
+    public GoogleFitDataIntValue() {
     }
 
-    public GoogleFitData2(String date, int value) {
+    public GoogleFitDataIntValue(String date, int value) {
         this.date = date;
         this.value = value;
     }

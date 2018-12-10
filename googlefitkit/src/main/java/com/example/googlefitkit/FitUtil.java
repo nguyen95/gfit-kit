@@ -3,15 +3,17 @@ package com.example.googlefitkit;
 import android.app.Activity;
 import android.content.Context;
 import android.support.annotation.NonNull;
-import com.example.googlefitkit.fitEntities.GoogleFitData1;
+import com.example.googlefitkit.fitEntities.GoogleFitDataFloatValue;
 import com.example.googlefitkit.fitEntities.GoogleFitDataBloodPressure;
 import com.example.googlefitkit.fitEntities.GoogleFitDataHeartRate;
 import com.example.googlefitkit.fitEntities.GoogleFitDataSleep;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.fitness.Fitness;
 import com.google.android.gms.fitness.FitnessOptions;
 import com.google.android.gms.fitness.data.*;
 import com.google.android.gms.fitness.request.DataReadRequest;
 import com.google.android.gms.fitness.result.DataReadResponse;
+import com.google.android.gms.tasks.Task;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -48,17 +50,41 @@ public class FitUtil {
                     GoogleSignIn.getLastSignedInAccount(activity),
                     fitnessOptions);
         } else {
-            ///kokokokoooooooo
             onAccessListener.onAccessGoogleFit();
         }
     }
 
-    public static DataReadRequest queryFitnessData(long endTime, long startTime) {
+    public static Task<DataReadResponse> readHistoryClient(Activity activity, DataReadRequest readRequest) {
+        return Fitness.getHistoryClient(activity, GoogleSignIn.getLastSignedInAccount(activity))
+                .readData(readRequest);
+    }
+
+    public static DataReadRequest queryFitnessWeightData(long endTime, long startTime) {
         return new DataReadRequest.Builder()
                 .read(DataType.TYPE_WEIGHT)
+                .bucketByTime(1, TimeUnit.DAYS)
+                .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
+                .build();
+    }
+
+    public static DataReadRequest queryFitnessBodyFatData(long endTime, long startTime) {
+        return new DataReadRequest.Builder()
                 .read(DataType.TYPE_BODY_FAT_PERCENTAGE)
-                .read(DataType.TYPE_ACTIVITY_SEGMENT)
+                .bucketByTime(1, TimeUnit.DAYS)
+                .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
+                .build();
+    }
+
+    public static DataReadRequest queryFitnessBloodPressureData(long endTime, long startTime) {
+        return new DataReadRequest.Builder()
                 .read(HealthDataTypes.TYPE_BLOOD_PRESSURE)
+                .bucketByTime(1, TimeUnit.DAYS)
+                .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
+                .build();
+    }
+
+    public static DataReadRequest queryFitnessHeartRateData(long endTime, long startTime) {
+        return new DataReadRequest.Builder()
                 .read(DataType.TYPE_HEART_RATE_BPM)
                 .bucketByTime(1, TimeUnit.DAYS)
                 .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
@@ -107,33 +133,11 @@ public class FitUtil {
             List<DataPoint> dataPoints = dataSet.getDataPoints();
             if (dataSet.getDataType().equals(DataType.TYPE_ACTIVITY_SEGMENT)) {
                 for (DataPoint dp : dataPoints) {
-                    datas.add((T) parseDataPointSleep(dp, datetimeFormat));
+                    datas.add((T) parseDataPoint(dp, datetimeFormat));
                 }
-            } else if(dataSet.getDataType().equals(DataType.TYPE_WEIGHT)) {
-                if (dataPoints != null && dataPoints.size() > 0) {
-                    DataPoint dp = dataPoints.get(dataPoints.size() - 1);
-                    datas.add((T) parseDataPoint(dp, dateFormat));
-                }
-            } else if(dataSet.getDataType().equals(DataType.TYPE_BODY_FAT_PERCENTAGE)) {
-                if (dataPoints != null && dataPoints.size() > 0) {
-                    DataPoint dp = dataPoints.get(dataPoints.size() - 1);
-                    datas.add((T) parseDataPoint(dp, dateFormat));
-                }
-            } else if(dataSet.getDataType().equals(DataType.TYPE_STEP_COUNT_DELTA)) {
-                if (dataPoints != null && dataPoints.size() > 0) {
-                    DataPoint dp = dataPoints.get(dataPoints.size() - 1);
-                    datas.add((T) parseDataPoint(dp, dateFormat));
-                }
-            } else if(dataSet.getDataType().equals(DataType.TYPE_HEART_RATE_BPM)) {
-                if (dataPoints != null && dataPoints.size() > 0) {
-                    DataPoint dp = dataPoints.get(dataPoints.size() - 1);
-                    datas.add((T) parseDataPoint(dp, dateFormat));
-                }
-            } else if(dataSet.getDataType().equals(HealthDataTypes.TYPE_BLOOD_PRESSURE)) {
-                if (dataPoints != null && dataPoints.size() > 0) {
-                    DataPoint dp = dataPoints.get(dataPoints.size() - 1);
-                    datas.add((T) parseDataPoint(dp, dateFormat));
-                }
+            } else if (dataPoints != null && dataPoints.size() > 0) {
+                DataPoint dp = dataPoints.get(dataPoints.size() - 1);
+                datas.add((T) parseDataPoint(dp, dateFormat));
             }
         }
         datas.removeAll(Collections.singleton(null));
@@ -142,6 +146,7 @@ public class FitUtil {
 
     public static <T> T parseDataPoint(DataPoint dp, SimpleDateFormat dateFormat) {
         String startTime = dateFormat.format(dp.getStartTime(TimeUnit.MILLISECONDS));
+        String endTime = dateFormat.format(dp.getEndTime(TimeUnit.MILLISECONDS));
         if (dp.getDataType().equals(DataType.TYPE_WEIGHT)) {
             float value = 0;
             for (Field field : dp.getDataType().getFields()) {
@@ -149,7 +154,7 @@ public class FitUtil {
                     value = dp.getValue(field).asFloat();
                 }
             }
-            return (T) new GoogleFitData1(startTime, value);
+            return (T) new GoogleFitDataFloatValue(startTime, value);
         }
         if (dp.getDataType().equals(DataType.TYPE_BODY_FAT_PERCENTAGE)) {
             float value = 0;
@@ -158,7 +163,7 @@ public class FitUtil {
                     value = dp.getValue(field).asFloat();
                 }
             }
-            return (T) new GoogleFitData1(startTime, value);
+            return (T) new GoogleFitDataFloatValue(startTime, value);
         }
         if (dp.getDataType().equals(DataType.AGGREGATE_STEP_COUNT_DELTA)) {
             int value = 0;
@@ -167,7 +172,7 @@ public class FitUtil {
                     value = dp.getValue(field).asInt();
                 }
             }
-            return (T) new GoogleFitData1(startTime, value);
+            return (T) new GoogleFitDataFloatValue(startTime, value);
         }
         if (dp.getDataType().equals(HealthDataTypes.TYPE_BLOOD_PRESSURE)) {
             float systolic = 0, diasolic = 0;
@@ -196,21 +201,17 @@ public class FitUtil {
             }
             return (T) new GoogleFitDataHeartRate(startTime, value, max, min);
         }
-        return null;
-    }
+        if (dp.getDataType().equals(DataType.TYPE_ACTIVITY_SEGMENT)) {
+            boolean isSleep = false;
+            for (Field field : dp.getDataType().getFields()) {
+                if (dp.getValue(field).toString().equals("72")) {
+                    isSleep = true;
+                }
 
-    public static GoogleFitDataSleep parseDataPointSleep(DataPoint dp, SimpleDateFormat dateFormat) {
-        String startTime = dateFormat.format(dp.getStartTime(TimeUnit.MILLISECONDS));
-        String endTime = dateFormat.format(dp.getEndTime(TimeUnit.MILLISECONDS));
-
-        boolean isSleep = false;
-        for (Field field : dp.getDataType().getFields()) {
-            if(dp.getValue(field).toString().equals("72")){
-                isSleep = true;
             }
-
+            return isSleep ? (T) new GoogleFitDataSleep(startTime, endTime) : null;
         }
-        return isSleep ? new GoogleFitDataSleep(startTime, endTime) : null;
+        return null;
     }
 
     public interface OnAccessListener {
